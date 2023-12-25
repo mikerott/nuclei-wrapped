@@ -53,6 +53,7 @@ func (s *Nuclei) RunScan(addresses []string, template templates.Template) (resul
 	defaultOpts := types.DefaultOptions()
 	defaultOpts.Timeout = 5
 	defaultOpts.Retries = 0
+	defaultOpts.MatcherStatus = true
 
 	outputWriter := writer{}
 	mockProgress := &testutils.MockProgressClient{}
