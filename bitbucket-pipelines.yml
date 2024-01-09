@@ -1,0 +1,82 @@
+image:
+    name: asecurityteam/sec-sdcli:v1.5.2
+
+deps: &deps
+    step:
+        name: Dependencies
+        services:
+            - docker
+        script:
+            - make dep
+        artifacts:
+            - vendor/**
+
+lint: &lint
+    step:
+        name: Linting
+        services:
+            - docker
+        script:
+            - make lint
+
+test: &test
+    step:
+        name: Tests
+        services:
+            - docker
+        script:
+            - make test
+        artifacts:
+            - .coverage/unit.cover.out
+
+coverage: &coverage
+    step:
+        name: Coverage
+        services:
+            - docker
+        script:
+            - make coverage
+
+sonar: &sonar
+    step:
+        name: Sonar
+        script:
+            - pipe: atlassian/artifactory-sidekick:v1
+            - source .artifactory/activate.sh
+            - git config --global safe.directory '*'
+            - pipe: docker://docker.atl-paas.net/sox/mobuild/sonar-pipe:stable
+              variables:
+                  CHECK_QUALITY_GATES: "true"
+                  DEFAULT_BRANCH: "main"
+
+tag: &tag
+    step:
+        name: Tag
+        deployment: production
+        script:
+            - VERSION=$(tail -1 .version)
+            - git tag ${VERSION}
+            - git push origin --tags
+
+
+pipelines:
+    default:
+        - <<: *deps
+        - parallel:
+            - <<: *lint
+            - <<: *test
+        - <<: *coverage
+        - <<: *sonar
+    branches:
+        main:
+            - <<: *deps
+            - parallel:
+                - <<: *lint
+                - <<: *test
+            - <<: *coverage
+            - <<: *sonar
+            - <<: *tag
+definitions:
+  services:
+    docker:
+      memory: 2048
