@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"sync"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,7 +16,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const RequestString = `
+const (
+	commonTemplateParts = `
+id: apache-detect
+info:
+  name: "Bitbucket Server: Path Travarsal via Migration Tool"
+  author: atlassian
+  description: |
+    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
+  tags: Bitbucket,Web,Community
+  classification:
+    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
+    cvss-score: 9.1
+    cve-id: CVE-2019-3397
+    cwe-id: CWE-22
+  remediation: Fix it
+`
+	requestTemplateParts = `
 requests:
   - method: GET
     path:
@@ -40,6 +56,7 @@ requests:
         kval:
           - Server
 `
+)
 
 func TestResultEventToVulnReport(t *testing.T) {
 
@@ -57,22 +74,7 @@ func TestResultEventToVulnReport(t *testing.T) {
 	}{
 		{
 			Name: "Golden Path To Vuln Report",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data: []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -136,7 +138,7 @@ info:
     Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
   tags: Bitbucket,Web,Community
   remediation: Fix it
-` + RequestString),
+` + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -201,7 +203,7 @@ info:
   tags: Bitbucket,Web,Community
   classification:
   remediation: Fix it
-` + RequestString),
+` + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -271,7 +273,7 @@ info:
     cve-id: CVE-2019-3397
     cwe-id: CWE-22
   remediation: Fix it
-` + RequestString),
+` + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -340,7 +342,7 @@ info:
     cve-id: CVE-2019-3397
     cwe-id: CWE-22
   remediation: Fix it
-` + RequestString),
+` + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -409,7 +411,7 @@ info:
     cve-id: CVE-2019-3397
     cwe-id: CWE-22
   remediation: Fix it
-` + RequestString),
+` + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -478,7 +480,7 @@ info:
     cve-id: CVE-2019-3397
     cwe-id: CWE-22
   remediation: Fix it
-` + RequestString),
+` + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -547,7 +549,7 @@ info:
     cve-id: CVE-2019-3397
     cwe-id: CWE-22
   remediation: Fix it
-` + RequestString),
+` + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -601,22 +603,7 @@ info:
 		},
 		{
 			Name: "To Vuln Report Path - Nuclei returns empty timestamp",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data: []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"31.3.96.40"}, gomock.Any()).Return([]*output.ResultEvent{{Host: "localhost", TemplateID: "apache-detect", IP: "31.3.96.40", Timestamp: time.Now()}}, nil, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.hit", float64(1))
@@ -718,7 +705,6 @@ func TestToVulnReportFailure(t *testing.T) {
 	tc := []struct {
 		Name           string
 		Resource       string
-		Err            string
 		Data           []byte
 		Mocks          func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger)
 		ExpectedError  error
@@ -727,23 +713,7 @@ func TestToVulnReportFailure(t *testing.T) {
 		{
 			Name:     "Golden Path To Vuln Report Failure - Hostname",
 			Resource: "localhost",
-			Err:      "somethingbroke",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data:     []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"localhost"}, gomock.Any()).Return(nil, []*output.InternalWrappedEvent{{InternalEvent: output.InternalEvent{"Hostname": "localhost", "template-id": "apache-detect", "date": "Mon, 02 Jan 2006 15:04:05 MST"}}}, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.miss", float64(1))
@@ -763,30 +733,14 @@ info:
 					ScannerAssetID: "localhost_apache-detect",
 					IPAddresses:    nil,
 					Hostnames:      []string{"localhost"},
-					Metadata:       map[string]interface{}{"whoRequestedScan": "", "hostErrors": "somethingbroke", "customScannerTemplate": "apache-detect"},
+					Metadata:       map[string]interface{}{"whoRequestedScan": "", "customScannerTemplate": "apache-detect"},
 				},
 			},
 		},
 		{
 			Name:     "Golden Path To Vuln Report Failure - ip",
 			Resource: "10.9.8.7",
-			Err:      "somethingbroke",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data:     []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"10.9.8.7"}, gomock.Any()).Return(nil, []*output.InternalWrappedEvent{{InternalEvent: output.InternalEvent{"ip": "10.9.8.7", "template-id": "apache-detect", "date": "Mon, 02 Jan 2006 15:04:05 MST"}}}, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.miss", float64(1))
@@ -806,29 +760,14 @@ info:
 					ScannerAssetID: "10.9.8.7_apache-detect",
 					Hostnames:      nil,
 					IPAddresses:    []string{"10.9.8.7"},
-					Metadata:       map[string]interface{}{"whoRequestedScan": "", "hostErrors": "somethingbroke", "customScannerTemplate": "apache-detect"},
+					Metadata:       map[string]interface{}{"whoRequestedScan": "", "customScannerTemplate": "apache-detect"},
 				},
 			},
 		},
 		{
 			Name:     "InternalEvent is nil",
 			Resource: "localhost",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data:     []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"localhost"}, gomock.Any()).Return(nil, []*output.InternalWrappedEvent{{InternalEvent: output.InternalEvent{"Hostname": "localhost", "template-id": "apache-detect", "date": "Mon, 02 Jan 2006 15:04:05 MST"}}}, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.miss", float64(1))
@@ -848,30 +787,14 @@ info:
 					ScannerAssetID: "localhost_apache-detect",
 					IPAddresses:    nil,
 					Hostnames:      []string{"localhost"},
-					Metadata:       map[string]interface{}{"whoRequestedScan": "", "hostErrors": "", "customScannerTemplate": "apache-detect"},
+					Metadata:       map[string]interface{}{"whoRequestedScan": "", "customScannerTemplate": "apache-detect"},
 				},
 			},
 		},
 		{
 			Name:     "To Vuln Report Failure - Missing date",
 			Resource: "localhost",
-			Err:      "somethingbroke",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data:     []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"localhost"}, gomock.Any()).Return(nil, []*output.InternalWrappedEvent{{InternalEvent: output.InternalEvent{"Hostname": "localhost", "template-id": "apache-detect"}}}, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.miss", float64(1))
@@ -891,30 +814,14 @@ info:
 					ScannerAssetID: "localhost_apache-detect",
 					IPAddresses:    nil,
 					Hostnames:      []string{"localhost"},
-					Metadata:       map[string]interface{}{"whoRequestedScan": "", "hostErrors": "somethingbroke", "alteredStartTime": "StartTime was altered due to missing date in Nuclei response", "customScannerTemplate": "apache-detect"},
+					Metadata:       map[string]interface{}{"whoRequestedScan": "", "alteredStartTime": "StartTime was altered due to missing date in Nuclei response", "customScannerTemplate": "apache-detect"},
 				},
 			},
 		},
 		{
 			Name:     "To Vuln Report Failure - Unparseable date",
 			Resource: "localhost",
-			Err:      "somethingbroke",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data:     []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater, mockLogger *commonmocks.MockLogger) {
 				mocknuclei.EXPECT().RunScan([]string{"localhost"}, gomock.Any()).Return(nil, []*output.InternalWrappedEvent{{InternalEvent: output.InternalEvent{"Hostname": "localhost", "template-id": "apache-detect", "date": time.Now().String()}}}, nil)
 				mockStatFn.EXPECT().Count("customscanner.vuln.miss", float64(1))
@@ -934,7 +841,7 @@ info:
 					ScannerAssetID: "localhost_apache-detect",
 					IPAddresses:    nil,
 					Hostnames:      []string{"localhost"},
-					Metadata:       map[string]interface{}{"whoRequestedScan": "", "hostErrors": "somethingbroke", "alteredStartTime": "StartTime was altered due to unparseable date", "customScannerTemplate": "apache-detect"},
+					Metadata:       map[string]interface{}{"whoRequestedScan": "", "alteredStartTime": "StartTime was altered due to unparseable date", "customScannerTemplate": "apache-detect"},
 				},
 			},
 		},
@@ -949,16 +856,10 @@ info:
 			mockLogger := commonmocks.NewMockLogger(ctrl)
 			mockStatFn := commonmocks.NewMockXStater(ctrl)
 
-			hostErrors := sync.Map{}
-			hostErrors.Store(tt.Resource, tt.Err)
-
-			cache := &Cache{hostErrors: &hostErrors}
-
 			scanner := Scanner{
-				Nuclei:          mocknuclei,
-				StatFn:          func(ctx context.Context) runhttp.Stat { return mockStatFn },
-				LogFn:           func(context.Context) logevent.Logger { return mockLogger },
-				hostErrorsCache: cache,
+				Nuclei: mocknuclei,
+				StatFn: func(ctx context.Context) runhttp.Stat { return mockStatFn },
+				LogFn:  func(context.Context) logevent.Logger { return mockLogger },
 			}
 
 			tt.Mocks(mocknuclei, mockStatFn, mockLogger)
@@ -988,7 +889,7 @@ info:
 
 func TestUnreachableHost(t *testing.T) {
 
-	// this test is for unreachable URLs; mocknuclei.EXPECT().RunScan should only ever return nil, nil nil
+	// this test is for unreachable URLs; mocknuclei.EXPECT().RunScan should only ever return []*output.InternalWrappedEvent
 
 	scanType := vulnreportdata.SCAN_TYPE_NETWORK
 	scanSourceNameCustom := vulnreportdata.SCAN_SOURCE_NAME_CUSTOM
@@ -1002,25 +903,10 @@ func TestUnreachableHost(t *testing.T) {
 	}{
 		{
 			Name: "Golden Path Unreachable Host",
-			Data: []byte(
-				`
-id: apache-detect
-info:
-  name: "Bitbucket Server: Path Travarsal via Migration Tool"
-  author: atlassian
-  description: |
-    Bitbucket Data Center had a path traversal vulnerability in the Data Center migration tool. A remote attacker with authenticated user with admin permissions can exploit this path traversal vulnerability to write files to arbitrary locations which can lead to remote code execution on systems that run a vulnerable version of Bitbucket Data Center. Bitbucket Server versions without a Data Center license are not vulnerable to this vulnerability.
-  tags: Bitbucket,Web,Community
-  classification:
-    cvss-metrics: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H
-    cvss-score: 9.1
-    cve-id: CVE-2019-3397
-    cwe-id: CWE-22
-  remediation: Fix it
-` + RequestString),
+			Data: []byte(commonTemplateParts + requestTemplateParts),
 			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater) {
-				mocknuclei.EXPECT().RunScan([]string{"localhost"}, gomock.Any()).Return(nil, nil, nil)
-				mockStatFn.EXPECT().Count("customscanner.vuln.unreachable", float64(1))
+				mocknuclei.EXPECT().RunScan([]string{"localhost"}, gomock.Any()).Return(nil, []*output.InternalWrappedEvent{{InternalEvent: output.InternalEvent{"Hostname": "localhost", "template-id": "apache-detect", "date": "Mon, 02 Jan 2006 15:04:05 MST", "error": fmt.Sprintf("gibberish %s gibberish", connectionRefused)}}}, nil)
+				mockStatFn.EXPECT().Count("customscanner.vuln.unreachable", float64(1), fmt.Sprintf("unreachableReason:%s", connectionRefused))
 			},
 			ExpectedError: nil,
 			ExpectedReturn: vulnreportdata.VulnReport{
@@ -1037,7 +923,33 @@ info:
 					ScannerAssetID: "localhost_apache-detect",
 					IPAddresses:    nil,
 					Hostnames:      []string{"localhost"},
-					Metadata:       map[string]interface{}{"reachable": false, "customScannerTemplate": "apache-detect"},
+					Metadata:       map[string]interface{}{"whoRequestedScan": "", "reachable": false, "unreachableReason": connectionRefused, "customScannerTemplate": "apache-detect"},
+				},
+			},
+		},
+		{
+			Name: "Golden Path timed out",
+			Data: []byte(commonTemplateParts + requestTemplateParts),
+			Mocks: func(mocknuclei *MockNucleiInterface, mockStatFn *commonmocks.MockXStater) {
+				mocknuclei.EXPECT().RunScan([]string{"localhost"}, gomock.Any()).Return(nil, []*output.InternalWrappedEvent{{InternalEvent: output.InternalEvent{"Hostname": "localhost", "template-id": "apache-detect", "date": "Mon, 02 Jan 2006 15:04:05 MST", "error": fmt.Sprintf("gibberish %s gibberish", contextDeadlineExceeded)}}}, nil)
+				mockStatFn.EXPECT().Count("customscanner.vuln.unreachable", float64(1), fmt.Sprintf("unreachableReason:%s", contextDeadlineExceeded))
+			},
+			ExpectedError: nil,
+			ExpectedReturn: vulnreportdata.VulnReport{
+				ID: "jobID",
+				Scan: vulnreportdata.Scan{
+					Type: &scanType,
+					Source: &vulnreportdata.Source{
+						Name: &scanSourceNameCustom,
+						ID:   "jobID",
+					},
+					StartTime: nil,
+				},
+				Asset: vulnreportdata.Asset{
+					ScannerAssetID: "localhost_apache-detect",
+					IPAddresses:    nil,
+					Hostnames:      []string{"localhost"},
+					Metadata:       map[string]interface{}{"whoRequestedScan": "", "reachable": false, "unreachableReason": contextDeadlineExceeded, "customScannerTemplate": "apache-detect"},
 				},
 			},
 		},
@@ -1139,7 +1051,7 @@ func TestToVulnReportFailureFailureEventPanicSafety(t *testing.T) {
 
 	scanner := Scanner{}
 	assert.NotPanics(t, func() {
-		_, err := scanner.toVulnReportFailure(nil, "jobID")
+		_, err := scanner.toVulnReportMiss(nil, "jobID")
 		assert.IsType(t, err, err)
 
 	})

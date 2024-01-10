@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/projectdiscovery/nuclei/v3/pkg/templates"
@@ -80,7 +82,7 @@ func TestTemplateMiss(t *testing.T) {
 
 }
 
-func TestUnreachable(t *testing.T) {
+func TestUnreachableConnectionRefused(t *testing.T) {
 
 	address := "http://localhost:9999" // unreachable = failureEvent
 
@@ -99,6 +101,38 @@ func TestUnreachable(t *testing.T) {
 
 	assert.True(t, len((failureEvents[0].InternalEvent)["error"].(string)) > 0)
 	assert.Equal(t, (failureEvents[0].InternalEvent)["status_code"], 0)
+	assert.True(t, strings.Contains((failureEvents[0].InternalEvent)["error"].(string), "connection refused"))
+
+}
+
+func TestUnreachableTimedOut(t *testing.T) {
+
+	httpClient := http.Client{}
+	request, err := http.NewRequest("POST", "http://localhost/instruct", strings.NewReader(`{"matchers":{"path":"/latency5000","method":"get"},"behaviors":{"latency":5000},"response":{"code":200}}`))
+	request.Header.Add("Content-Type", "application/json")
+	assert.Nil(t, err)
+	response, err := httpClient.Do(request)
+	assert.Nil(t, err, "Did you run from `make test`, because you should have!")
+	assert.Equal(t, 201, response.StatusCode)
+
+	address := "http://localhost/latency5000" // will time out
+
+	nuclei := Nuclei{}
+
+	template := templates.Template{}
+	if err := yaml.Unmarshal([]byte(templateString), &template); err != nil {
+		assert.FailNow(t, err.Error())
+	}
+
+	resultEvents, failureEvents, err := nuclei.RunScan([]string{address}, template)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(resultEvents))
+	assert.Equal(t, 1, len(failureEvents))
+
+	assert.True(t, len((failureEvents[0].InternalEvent)["error"].(string)) > 0)
+	assert.Equal(t, (failureEvents[0].InternalEvent)["status_code"], 0)
+	assert.True(t, strings.Contains((failureEvents[0].InternalEvent)["error"].(string), "context deadline exceeded"))
 
 }
 

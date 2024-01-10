@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"regexp"
 	"strings"
 	"time"
 
 	vulnreportdata "bitbucket.org/asecurityteam/vuln-report-data/v3"
-	"github.com/projectdiscovery/nuclei/v3/pkg/protocols/common/hosterrorscache"
 
 	"github.com/projectdiscovery/nuclei/v3/pkg/output"
 	"github.com/projectdiscovery/nuclei/v3/pkg/templates"
@@ -22,6 +20,8 @@ const (
 	getAssetsByIPOmission    = `get-assets-by-ip-omission`
 	scannerAssetIDFormat     = `%s_%s`
 	customScannerTemplateKey = "customScannerTemplate"
+	connectionRefused        = "connection refused"        // text that may appear in Nuclei InternalWrappedEvent["error"]
+	contextDeadlineExceeded  = "context deadline exceeded" // text that may appear in Nuclei InternalWrappedEvent["error"]
 )
 
 var (
@@ -39,21 +39,16 @@ type ScanRecord struct {
 
 // Scanner performs scans
 type Scanner struct {
-	Nuclei          NucleiInterface
-	LogFn           LogFn
-	StatFn          StatFn
-	hostErrorsCache hosterrorscache.CacheInterface
+	Nuclei NucleiInterface
+	LogFn  LogFn
+	StatFn StatFn
 }
 
 // Scan performs the requested scans
 func (s *Scanner) Scan(ctx context.Context, scanRecords []ScanRecord, templateStrings []string) ([]ScanRecord, error) {
 
-	if s.hostErrorsCache == nil {
-		s.hostErrorsCache = &Cache{}
-	}
-
 	if s.Nuclei == nil {
-		s.Nuclei = &Nuclei{HostErrorsCache: s.hostErrorsCache}
+		s.Nuclei = &Nuclei{}
 	}
 
 	stater := s.StatFn(ctx)
@@ -94,7 +89,7 @@ func (s *Scanner) Scan(ctx context.Context, scanRecords []ScanRecord, templateSt
 		for _, resultEvent := range resultEvents {
 			scanRecordID := getScanJobIDForResultEvent(resultEvent, scanRecords)
 			scanRecordResults[scanRecordID] = true
-			vulnReport := toVulnReport(resultEvent, scanRecordID, templateMap[templateID])
+			vulnReport := toVulnReportHit(resultEvent, scanRecordID, templateMap[templateID])
 			for i, scanRecord := range scanRecords {
 				if scanRecord.ID == scanRecordID {
 					scanRecords[i].VulnReport = &vulnReport
@@ -111,12 +106,15 @@ func (s *Scanner) Scan(ctx context.Context, scanRecords []ScanRecord, templateSt
 			}
 			stater.Count("customscanner.vuln.hit", 1)
 		}
+
 		for _, failureEvent := range failureEvents {
-			// a "FailureEvent" from Nuclei is a "failure to match"; meaning it was scanned and no vulns found, which is a good thing
+			// I called them "failureEvent" here, but it's really a Nuclei "InternalWrappedEvent" which can be either
+			// 1. a "failure to match"; meaning it was scanned and no vulns found, which is a good thing, or
+			// 2. a "failure to reach"; meaning the host connection was refused, or we timed out before a response, or other
 			scanRecordID := getScanJobIDForFailureEvent(failureEvent, scanRecords)
 			// don't wipe out the resultEvent, which may have occurred against http or https
 			if _, ok := scanRecordResults[scanRecordID]; !ok {
-				vulnReport, err := s.toVulnReportFailure(failureEvent, scanRecordID)
+				vulnReport, err := s.toVulnReportMiss(failureEvent, scanRecordID)
 				if err != nil {
 					return nil, err
 				}
@@ -134,39 +132,12 @@ func (s *Scanner) Scan(ctx context.Context, scanRecords []ScanRecord, templateSt
 						break
 					}
 				}
-				stater.Count("customscanner.vuln.miss", 1)
-			}
-		}
-	}
-
-	// iterate over all the scanRecords with empty vuln reports (because Nuclei returned nil,nil,nil indicating failure to resolve name or failure to connect)
-	scanType := vulnreportdata.SCAN_TYPE_NETWORK
-	scanSourceName := vulnreportdata.SCAN_SOURCE_NAME_CUSTOM
-	now := time.Now()
-	for i, scanRecord := range scanRecords {
-		if scanRecord.VulnReport == nil {
-			stater.Count("customscanner.vuln.unreachable", 1)
-			nowfinished := time.Now()
-			scanRecords[i].Finished = &nowfinished
-			scanRecords[i].VulnReport = &vulnreportdata.VulnReport{
-				ID: scanRecord.ID,
-				Asset: vulnreportdata.Asset{
-					ScannerAssetID: fmt.Sprintf(scannerAssetIDFormat, scanRecord.Resource, scanRecord.TemplateID),
-					Metadata:       map[string]interface{}{"reachable": false, customScannerTemplateKey: scanRecord.TemplateID},
-				},
-				Scan: vulnreportdata.Scan{
-					StartTime: &now,
-					Source: &vulnreportdata.Source{
-						Name: &scanSourceName,
-						ID:   scanRecord.ID,
-					},
-					Type: &scanType,
-				},
-			}
-			if net.ParseIP(scanRecord.Resource) != nil {
-				scanRecords[i].VulnReport.Asset.IPAddresses = []string{scanRecord.Resource}
-			} else {
-				scanRecords[i].VulnReport.Asset.Hostnames = []string{scanRecord.Resource}
+				if _, ok := vulnReport.Asset.Metadata["reachable"]; ok {
+					// the conditional reads a bit strangely, but we trust that "toVulnReportMiss" places a {"reachable":false} metadata value
+					stater.Count("customscanner.vuln.unreachable", 1, fmt.Sprintf("unreachableReason:%s", vulnReport.Asset.Metadata["unreachableReason"].(string)))
+				} else { // else there is no "reachable" key at all
+					stater.Count("customscanner.vuln.miss", 1)
+				}
 			}
 		}
 	}
@@ -224,7 +195,7 @@ func getScanJobIDForFailureEvent(failure *output.InternalWrappedEvent, scanRecor
 	return ``
 }
 
-func toVulnReport(re *output.ResultEvent, jobID string, template templates.Template) vulnreportdata.VulnReport {
+func toVulnReportHit(re *output.ResultEvent, jobID string, template templates.Template) vulnreportdata.VulnReport {
 	var vulnReport vulnreportdata.VulnReport
 
 	vulnReport.ID = jobID
@@ -330,7 +301,7 @@ func toVulnReport(re *output.ResultEvent, jobID string, template templates.Templ
 	return vulnReport
 }
 
-func (s *Scanner) toVulnReportFailure(failure *output.InternalWrappedEvent, jobID string) (vulnreportdata.VulnReport, error) {
+func (s *Scanner) toVulnReportMiss(failure *output.InternalWrappedEvent, jobID string) (vulnreportdata.VulnReport, error) {
 
 	if failure == nil {
 		return vulnreportdata.VulnReport{}, fmt.Errorf("Nuclei returned an empty InternalEvent")
@@ -343,16 +314,10 @@ func (s *Scanner) toVulnReportFailure(failure *output.InternalWrappedEvent, jobI
 	var ipAddresses []string
 	if ipMapValue, ok := (failure.InternalEvent)["ip"]; ok {
 		ipAddresses = []string{ipMapValue.(string)}
-		if cache, ok := s.hostErrorsCache.(*Cache); ok {
-			metadata["hostErrors"] = cache.GetHostErrors(ipMapValue.(string))
-		}
 	}
 	var hostnames []string
 	if hostMapValue, ok := (failure.InternalEvent)["Hostname"]; ok { // yes, "Hostname" with a capital 'H'
 		hostnames = []string{hostMapValue.(string)}
-		if cache, ok := s.hostErrorsCache.(*Cache); ok {
-			metadata["hostErrors"] = cache.GetHostErrors(hostMapValue.(string))
-		}
 	}
 	var datetime time.Time
 	alteredStateReason := ""
@@ -371,6 +336,17 @@ func (s *Scanner) toVulnReportFailure(failure *output.InternalWrappedEvent, jobI
 	timestamp, isAlteredTimestamp := getTimestamp(datetime)
 	if isAlteredTimestamp {
 		metadata["alteredStartTime"] = alteredStateReason
+	}
+
+	// could also check failure.InternalEvent)["status_code"] == 0
+	if errorText, ok := (failure.InternalEvent)["error"]; ok {
+		errorTextString := errorText.(string)
+		metadata["reachable"] = false
+		if strings.Contains(errorTextString, connectionRefused) {
+			metadata["unreachableReason"] = connectionRefused
+		} else if strings.Contains(errorTextString, contextDeadlineExceeded) {
+			metadata["unreachableReason"] = contextDeadlineExceeded
+		}
 	}
 
 	vulnReport.Asset = vulnreportdata.Asset{

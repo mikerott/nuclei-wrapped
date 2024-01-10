@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/logrusorgru/aurora"
 	"github.com/projectdiscovery/nuclei/v3/pkg/output"
 )
@@ -9,6 +11,7 @@ import (
 type writer struct {
 	resultEvents  []*output.ResultEvent
 	failureEvents []*output.InternalWrappedEvent
+	mutex         sync.RWMutex
 }
 
 // Close closes the output writer interface
@@ -21,19 +24,23 @@ func (w *writer) Colorizer() aurora.Aurora {
 
 // Write writes the event to file and/or screen.
 func (w *writer) Write(event *output.ResultEvent) error {
+	w.mutex.Lock()
 	if w.resultEvents == nil {
 		w.resultEvents = []*output.ResultEvent{}
 	}
 	w.resultEvents = append(w.resultEvents, event)
+	w.mutex.Unlock()
 	return nil
 }
 
 // WriteFailure writes the optional failure event for template to file and/or screen.
 func (w *writer) WriteFailure(event *output.InternalWrappedEvent) error {
+	w.mutex.Lock()
 	if w.failureEvents == nil {
 		w.failureEvents = []*output.InternalWrappedEvent{}
 	}
 	w.failureEvents = append(w.failureEvents, event)
+	w.mutex.Unlock()
 	return nil
 }
 

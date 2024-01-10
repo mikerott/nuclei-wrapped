@@ -10,7 +10,6 @@ import (
 	"github.com/projectdiscovery/nuclei/v3/pkg/output"
 	"github.com/projectdiscovery/nuclei/v3/pkg/parsers"
 	"github.com/projectdiscovery/nuclei/v3/pkg/protocols"
-	"github.com/projectdiscovery/nuclei/v3/pkg/protocols/common/hosterrorscache"
 	"github.com/projectdiscovery/nuclei/v3/pkg/protocols/common/protocolinit"
 	"github.com/projectdiscovery/nuclei/v3/pkg/reporting"
 	"github.com/projectdiscovery/nuclei/v3/pkg/templates"
@@ -34,8 +33,7 @@ const (
 type Nuclei struct {
 	// TimeoutSeconds the Nuclei timeout (see "timeout" flag in docs: https://docs.projectdiscovery.io/tools/nuclei/running)
 	// In this usage the default is 2, maximum 5.  Any value greater than 5 will be automatically adjusted down to 5.
-	TimeoutSeconds  int
-	HostErrorsCache hosterrorscache.CacheInterface
+	TimeoutSeconds int
 }
 
 // RunScan executes a scan using Nuclei embedded library
@@ -45,10 +43,6 @@ func (n *Nuclei) RunScan(addresses []string, template templates.Template) (resul
 		n.TimeoutSeconds = defaultTimeoutSeconds
 	}
 	timeoutSeconds := int(math.Min(float64(n.TimeoutSeconds), maxTimeoutSeconds))
-
-	if n.HostErrorsCache == nil {
-		n.HostErrorsCache = &Cache{}
-	}
 
 	ctx := context.Background()
 
@@ -82,15 +76,14 @@ func (n *Nuclei) RunScan(addresses []string, template templates.Template) (resul
 	mockProgress := &testutils.MockProgressClient{}
 
 	executerOpts := protocols.ExecutorOptions{
-		Options:         defaultOpts,
-		Output:          &outputWriter,
-		Catalog:         &Catalog{},   // no-op Catalog, but we pass it because the Nuclei internals require one
-		Progress:        mockProgress, // no-op Progress, but we pass it because the Nuclei internals require one
-		RateLimiter:     ratelimit.NewUnlimited(ctx),
-		ResumeCfg:       types.NewResumeCfg(),
-		TemplateID:      template.ID,
-		TemplateInfo:    template.Info,
-		HostErrorsCache: n.HostErrorsCache,
+		Options:      defaultOpts,
+		Output:       &outputWriter,
+		Catalog:      &Catalog{},   // no-op Catalog, but we pass it because the Nuclei internals require one
+		Progress:     mockProgress, // no-op Progress, but we pass it because the Nuclei internals require one
+		RateLimiter:  ratelimit.NewUnlimited(ctx),
+		ResumeCfg:    types.NewResumeCfg(),
+		TemplateID:   template.ID,
+		TemplateInfo: template.Info,
 	}
 
 	// some weird init the library makes users call?
